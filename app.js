@@ -8,11 +8,16 @@
 
   var ME_KEY = "reddees.me";
   var DEMO_KEY = "reddees.demoAnswers";
+  var DEMO_PHOTOS_KEY = "reddees.demoPhotos";
+  var MAX_SIDE = 3000;                 // photos are resized to at most this many pixels on the long side
+  var MAX_UPLOAD = 25 * 1024 * 1024;   // matches the Apps Script limit
 
   var state = {
     data: null,
     me: null,               // { name, code }
     answers: {},            // qid -> { answer, name, time }
+    photos: {},             // qid -> [{ fileName, name, time }]
+    uploading: {},          // qid -> status text while an upload runs
     filter: "pending",
     justAnswered: {},       // qids answered since the filter was last changed (kept visible)
     editing: {},            // qids whose editor is open over an existing answer
@@ -34,7 +39,7 @@
   // ---------- backend ----------
   function apiList() {
     if (DEMO) {
-      return Promise.resolve({ ok: true, answers: Object.values(load(DEMO_KEY, {})) });
+      return Promise.resolve({ ok: true, answers: Object.values(load(DEMO_KEY, {})), photos: load(DEMO_PHOTOS_KEY, {}) });
     }
     var url = API + (API.indexOf("?") === -1 ? "?" : "&") +
       "action=list&code=" + encodeURIComponent(state.me.code);
@@ -57,6 +62,118 @@
     }).then(function (r) { return r.json(); });
   }
 
+  function apiUpload(payload) {
+    if (DEMO) {
+      var all = load(DEMO_PHOTOS_KEY, {});
+      var file = { fileName: payload.fileName, name: payload.name, time: new Date().toISOString() };
+      (all[payload.qid] = all[payload.qid] || []).push(file);
+      save(DEMO_PHOTOS_KEY, all);
+      return new Promise(function (res) { setTimeout(function () { res({ ok: true, file: file }); }, 400); });
+    }
+    payload.action = "upload";
+    payload.code = state.me.code;
+    return fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); });
+  }
+
+  // ---------- files ----------
+  // Shrink big phone photos before upload (faster on mobile data, still sharp on a website).
+  function prepareFile(file) {
+    var resizable = /^image\/(jpeg|webp)$/i.test(file.type);
+    if (!resizable) return Promise.resolve({ blob: file, type: file.type || "application/octet-stream", name: file.name });
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var w = img.naturalWidth, h = img.naturalHeight;
+        var scale = Math.min(1, MAX_SIDE / Math.max(w, h));
+        if (scale === 1 && file.size < 4 * 1024 * 1024) {
+          return resolve({ blob: file, type: file.type, name: file.name });
+        }
+        var c = document.createElement("canvas");
+        c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(function (b) {
+          if (!b || b.size >= file.size) return resolve({ blob: file, type: file.type, name: file.name });
+          resolve({ blob: b, type: "image/jpeg", name: file.name.replace(/\.\w+$/, "") + ".jpg" });
+        }, "image/jpeg", 0.88);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve({ blob: file, type: file.type, name: file.name }); };
+      img.src = url;
+    });
+  }
+
+  function toBase64(blob) {
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(String(r.result).split(",")[1] || ""); };
+      r.onerror = function () { reject(r.error); };
+      r.readAsDataURL(blob);
+    });
+  }
+
+  function uploadFiles(section, q, files) {
+    var list = Array.prototype.slice.call(files || []);
+    if (!list.length) return;
+    var done = 0, failed = 0;
+
+    function setStatus(text) {
+      state.uploading[q.id] = text;
+      var btn = document.querySelector("#q-" + q.id + " .upload-btn");
+      if (btn) btn.classList.add("is-busy");
+      var s = document.querySelector("#q-" + q.id + " .upload-status");
+      if (s) { s.textContent = text; s.className = "upload-status status"; }
+    }
+
+    function next(i) {
+      if (i >= list.length) {
+        delete state.uploading[q.id];
+        replaceCard(section, q);
+        renderSummary();
+        renderSectionCounts();
+        if (failed) {
+          var s = document.querySelector("#q-" + q.id + " .upload-status");
+          if (s) {
+            s.className = "upload-status status err";
+            s.textContent = done + " uploaded, " + failed + " failed. Check the internet and try the failed ones again.";
+          }
+        }
+        toast(failed ? "Some uploads failed." : (done === 1 ? "Photo uploaded. Thank you!" : done + " files uploaded. Thank you!"));
+        return;
+      }
+      var f = list[i];
+      setStatus("Uploading " + (i + 1) + " of " + list.length + "…");
+      prepareFile(f).then(function (p) {
+        if (p.blob.size > MAX_UPLOAD) throw new Error("too_large");
+        return toBase64(p.blob).then(function (data) {
+          return apiUpload({
+            qid: q.id,
+            folder: q.folder || section.title,
+            fileName: p.name,
+            mimeType: p.type,
+            name: state.me.name,
+            data: data
+          });
+        });
+      }).then(function (res) {
+        if (!res || !res.ok) {
+          if (res && res.error === "bad_code") { signOut("That access code no longer works. Please enter it again."); list = []; return; }
+          throw new Error((res && res.error) || "upload_failed");
+        }
+        (state.photos[q.id] = state.photos[q.id] || []).push(res.file);
+        state.justAnswered[q.id] = true;
+        done++;
+      }).catch(function () {
+        failed++;
+      }).then(function () { next(i + 1); });
+    }
+    next(0);
+  }
+
   // ---------- question helpers ----------
   function allQuestions() {
     var out = [];
@@ -67,9 +184,14 @@
   }
   function isAnswered(qid) {
     var a = state.answers[qid];
+    return !!(a && String(a.answer).trim()) || !!(state.photos[qid] && state.photos[qid].length);
+  }
+  function hasText(qid) {
+    var a = state.answers[qid];
     return !!(a && String(a.answer).trim());
   }
   function typeOf(q) { return q.type || "text"; }
+  function canUpload(q) { return typeOf(q) === "photo" || !!q.upload; }
 
   // Turn a stored answer back into editor fields.
   function parseAnswer(q, answer) {
@@ -169,12 +291,14 @@
   }
 
   function renderQuestion(section, q) {
-    var answered = isAnswered(q.id);
+    var answered = hasText(q.id);
     var a = state.answers[q.id];
-    var card = el("article", { className: "q card" + (answered ? " done" : ""), id: "q-" + q.id });
+    var card = el("article", { className: "q card" + (isAnswered(q.id) ? " done" : ""), id: "q-" + q.id });
 
     card.appendChild(el("p", { className: "q-text", text: q.text }));
     if (q.hint) card.appendChild(el("p", { className: "q-hint", text: q.hint }));
+
+    if (canUpload(q)) card.appendChild(renderUploader(section, q));
 
     var showEditor = !answered || state.editing[q.id];
 
@@ -199,6 +323,45 @@
     return card;
   }
 
+  function renderUploader(section, q) {
+    var files = state.photos[q.id] || [];
+    var box = el("div", { className: "uploader" });
+
+    if (files.length) {
+      var by = {};
+      files.forEach(function (f) { var n = f.name || "Someone"; by[n] = (by[n] || 0) + 1; });
+      var who = Object.keys(by).map(function (n) { return n + " (" + by[n] + ")"; }).join(", ");
+      box.appendChild(el("p", {
+        className: "upload-summary",
+        text: files.length + (files.length === 1 ? " file uploaded" : " files uploaded") + " · " + who
+      }));
+    }
+
+    var isPhoto = typeOf(q) === "photo";
+    var input = el("input", {
+      type: "file",
+      accept: q.accept || "image/*",
+      multiple: true,
+      className: "visually-hidden",
+      id: "file-" + q.id,
+      "aria-label": "Choose files for: " + q.text
+    });
+    input.addEventListener("change", function () {
+      var chosen = input.files;
+      if (chosen && chosen.length) uploadFiles(section, q, chosen);
+      input.value = "";
+    });
+    var busy = !!state.uploading[q.id];
+    var label = el("label", {
+      className: "btn upload-btn" + (busy ? " is-busy" : ""),
+      "for": "file-" + q.id,
+      text: files.length ? (isPhoto ? "Upload more photos" : "Upload more files") : (isPhoto ? "Upload photos" : "Upload file")
+    });
+    var status = el("span", { className: "upload-status status", "aria-live": "polite", text: state.uploading[q.id] || "" });
+    box.appendChild(el("div", { className: "upload-row" }, [input, label, status]));
+    return box;
+  }
+
   function renderEditor(section, q) {
     var d = draftFor(q);
     var t = typeOf(q);
@@ -208,7 +371,7 @@
 
     function refreshButton() {
       var composed = composeAnswer(q, d);
-      saveBtn.disabled = !composed && !isAnswered(q.id);
+      saveBtn.disabled = !composed && !hasText(q.id);
     }
 
     if (t === "choice") {
@@ -233,7 +396,7 @@
       var cb = el("input", { type: "checkbox" });
       cb.checked = !!d.checked;
       cb.addEventListener("change", function () { d.checked = cb.checked; refreshButton(); });
-      editor.appendChild(el("label", { className: "check" }, [cb, el("span", { text: "Photos sent" })]));
+      editor.appendChild(el("label", { className: "check" }, [cb, el("span", { text: "Sent on WhatsApp instead" })]));
     }
 
     var placeholder = t === "text" ? "Type the answer here…" : "Anything to add? (optional)";
@@ -371,9 +534,10 @@
       var map = {};
       (res.answers || []).forEach(function (row) { map[row.qid] = row; });
       state.answers = map;
+      state.photos = res.photos || {};
       state.lastSync = new Date();
       // Drop drafts that were only pre-filled from old answers; keep ones being edited.
-      Object.keys(state.drafts).forEach(function (k) { if (!state.editing[k] && isAnswered(k)) delete state.drafts[k]; });
+      Object.keys(state.drafts).forEach(function (k) { if (!state.editing[k] && hasText(k)) delete state.drafts[k]; });
       render();
       if (!quiet) toast("Up to date.");
       return true;

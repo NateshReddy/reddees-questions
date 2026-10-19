@@ -1,6 +1,6 @@
 # Reddee's Sales — website questions
 
-A small page where Dad's team answers questions for the new Reddee's Sales website. Anyone with the link and access code can answer any question from their phone; answers are saved to a Google Sheet, and everyone sees what's already answered.
+A small page where Dad's team answers questions for the new Reddee's Sales website. Anyone with the link and access code can answer any question from their phone; answers are saved to a Google Sheet, and everyone sees what's already answered. Photos and files uploaded on the page go into a folder in your Google Drive.
 
 ## Files
 
@@ -16,11 +16,12 @@ A small page where Dad's team answers questions for the new Reddee's Sales websi
 1. Create a new Google Sheet (e.g. "Reddee's website answers").
 2. In the sheet: **Extensions → Apps Script**. Delete what's there and paste in `apps-script/Code.gs`.
 3. Change `ACCESS_CODE` at the top to the code you'll share with the team. Save.
-4. **Deploy → New deployment** → type **Web app** → Execute as **Me**, Who has access **Anyone** → Deploy. Approve the permissions.
-5. Copy the web app URL (ends in `/exec`) into `config.js` as `apiUrl`.
-6. In the GitHub repo: **Settings → Pages** → Deploy from branch → `main` / root.
+4. Pick **setupPhotoFolder** in the function menu at the top and click **Run**. Approve the Google permissions (Sheets and Drive). This creates the "Reddee's website photos" folder in your Drive.
+5. **Deploy → New deployment** → type **Web app** → Execute as **Me**, Who has access **Anyone** → Deploy. Approve the permissions.
+6. Copy the web app URL (ends in `/exec`) into `config.js` as `apiUrl`.
+7. In the GitHub repo: **Settings → Pages** → Deploy from branch → `main` / root.
 
-Answers land in an **Answers** tab in the sheet. Every save is a new row, so you keep the full history; the page shows the latest answer per question.
+Answers land in an **Answers** tab in the sheet. Uploads go to **Reddee's website photos** in your Drive, one subfolder per item (Storefront, Team, Logo, ...), and each upload is also listed in a **Photos** tab with a link to the file. Large phone photos are resized to 3000 px on the long side before upload; other files (PDF, AI, CDR) are uploaded as they are, up to 25 MB each. Every save is a new row, so you keep the full history; the page shows the latest answer per question.
 
 ## Adding questions
 
@@ -33,11 +34,12 @@ Add an entry to a section in `questions.json`. Each question needs a unique `id`
 Types:
 - text (default): a free-text box
 - `"type": "choice", "options": ["A", "B"]`: buttons plus an optional note
-- `"type": "photo"`: a "Photos sent" tick plus an optional note
+- `"type": "photo"`: an upload button, a "Sent on WhatsApp instead" tick and an optional note. Add `"folder": "Name"` for the Drive subfolder.
+- Any question can take uploads with `"upload": true` (plus optional `"folder"` and `"accept"`, e.g. `"image/*,.pdf"`).
 
 ## Changing the access code
 
-Edit `ACCESS_CODE` in Apps Script, then **Deploy → Manage deployments → Edit → New version**. The URL stays the same. Everyone will be asked for the new code.
+Edit `ACCESS_CODE` in Apps Script, then **Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy**. The same applies whenever `Code.gs` changes. The URL stays the same. Everyone will be asked for the new code.
 
 ## Preview
 

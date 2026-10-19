@@ -23,20 +23,30 @@
           "id": "enquiry_email",
           "text": "Which email should website enquiries go to?",
           "type": "choice",
-          "options": ["sales@reddees.com", "reddeessales@gmail.com", "Both"]
+          "options": [
+            "sales@reddees.com",
+            "reddeessales@gmail.com",
+            "Both"
+          ]
         },
         {
           "id": "founder_name",
           "text": "IndiaMART lists K. Narender Reddy as proprietor. Should the About page name him as the founder?",
           "type": "choice",
-          "options": ["Yes", "No"]
+          "options": [
+            "Yes",
+            "No"
+          ]
         },
         {
           "id": "gst_footer",
           "text": "Should the GST number (27AAKPR8599K1ZJ) be shown in the website footer?",
           "hint": "Optional. It is not legally required on a website.",
           "type": "choice",
-          "options": ["Yes, show it", "No, skip it"]
+          "options": [
+            "Yes, show it",
+            "No, skip it"
+          ]
         },
         {
           "id": "listings",
@@ -108,7 +118,11 @@
           "id": "prices",
           "text": "Should the website show prices, or \"price on request\" for everything?",
           "type": "choice",
-          "options": ["Show prices", "Price on request", "Prices for some products only"]
+          "options": [
+            "Show prices",
+            "Price on request",
+            "Prices for some products only"
+          ]
         }
       ]
     },
@@ -120,34 +134,91 @@
           "id": "colours",
           "text": "Should the website follow the brochure's colours (teal, plus the logo's colour ring), or are we open to a fresh look?",
           "type": "choice",
-          "options": ["Keep the brochure colours", "Open to a fresh look"]
+          "options": [
+            "Keep the brochure colours",
+            "Open to a fresh look"
+          ]
         },
         {
           "id": "logo_file",
-          "text": "Do we have the original logo file from the designer (AI, CDR, PDF or a high-resolution PNG)? Who has it?"
+          "text": "Do we have the original logo file from the designer (AI, CDR, PDF or a high-resolution PNG)? Who has it? If you have it, upload it here.",
+          "upload": true,
+          "folder": "Logo",
+          "accept": "image/*,.pdf,.ai,.cdr,.eps,.svg,.zip"
         },
         {
           "id": "language",
           "text": "Which languages should the website be in?",
           "type": "choice",
-          "options": ["English only", "English + Hindi", "English + Marathi", "English + Hindi + Marathi"]
+          "options": [
+            "English only",
+            "English + Hindi",
+            "English + Marathi",
+            "English + Hindi + Marathi"
+          ]
         }
       ]
     },
     {
       "id": "photos",
       "title": "Photos",
-      "intro": "Real photos of the shop and team build far more trust than catalogue pictures. A phone camera is fine: daylight, landscape, area tidied first. Send the photos to Natesh on WhatsApp or Google Drive, then tick the item here.",
+      "intro": "Real photos of the shop and team build far more trust than catalogue pictures. A phone camera is fine: daylight, landscape, area tidied first. Upload them here (they go straight to Natesh's Google Drive), or send them on WhatsApp and tick the box.",
       "questions": [
-        { "id": "photo_storefront", "type": "photo", "text": "Storefront: outside of the office with the signboard clearly visible." },
-        { "id": "photo_office", "type": "photo", "text": "Office: wide shots of the inside, plus any machines kept there." },
-        { "id": "photo_founder", "type": "photo", "text": "A portrait of Dad for the About page." },
-        { "id": "photo_team", "type": "photo", "text": "Team: service engineers and staff, as a group and at work." },
-        { "id": "photo_machines", "type": "photo", "text": "Machines running: prints coming out, a book being bound, a cut or a lamination in progress." },
-        { "id": "photo_installations", "type": "photo", "text": "Installations at customer sites: schools, print shops or offices.", "hint": "Ask the customer first. No faces or documents without permission." },
-        { "id": "photo_service", "type": "photo", "text": "Service work: an engineer repairing a machine, the spares stock." },
-        { "id": "photo_certificates", "type": "photo", "text": "Certificates: authorised partner certificates from Xerox and RISO, and any dealer awards." },
-        { "id": "photo_events", "type": "photo", "text": "Events: trade fairs, product launches or customer meets, if any." }
+        {
+          "id": "photo_storefront",
+          "type": "photo",
+          "text": "Storefront: outside of the office with the signboard clearly visible.",
+          "folder": "Storefront"
+        },
+        {
+          "id": "photo_office",
+          "type": "photo",
+          "text": "Office: wide shots of the inside, plus any machines kept there.",
+          "folder": "Office"
+        },
+        {
+          "id": "photo_founder",
+          "type": "photo",
+          "text": "A portrait of Dad for the About page.",
+          "folder": "Founder portrait"
+        },
+        {
+          "id": "photo_team",
+          "type": "photo",
+          "text": "Team: service engineers and staff, as a group and at work.",
+          "folder": "Team"
+        },
+        {
+          "id": "photo_machines",
+          "type": "photo",
+          "text": "Machines running: prints coming out, a book being bound, a cut or a lamination in progress.",
+          "folder": "Machines running"
+        },
+        {
+          "id": "photo_installations",
+          "type": "photo",
+          "text": "Installations at customer sites: schools, print shops or offices.",
+          "hint": "Ask the customer first. No faces or documents without permission.",
+          "folder": "Installations"
+        },
+        {
+          "id": "photo_service",
+          "type": "photo",
+          "text": "Service work: an engineer repairing a machine, the spares stock.",
+          "folder": "Service work"
+        },
+        {
+          "id": "photo_certificates",
+          "type": "photo",
+          "text": "Certificates: authorised partner certificates from Xerox and RISO, and any dealer awards.",
+          "folder": "Certificates"
+        },
+        {
+          "id": "photo_events",
+          "type": "photo",
+          "text": "Events: trade fairs, product launches or customer meets, if any.",
+          "folder": "Events"
+        }
       ]
     }
   ]

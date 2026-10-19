@@ -1,0 +1,154 @@
+{
+  "title": "Questions for the new website",
+  "intro": "We're building a new website for Reddee's Sales. Answer whatever you know — anyone can answer any question, and you can skip the ones you're unsure about. Each answer saves as soon as you press Save.",
+  "sections": [
+    {
+      "id": "contact",
+      "title": "Domain and contact details",
+      "questions": [
+        {
+          "id": "domain",
+          "text": "Do we own reddees.com? Who registered it, and where (GoDaddy, BigRock, etc.)? Do we have the login? Is anything live on it right now?"
+        },
+        {
+          "id": "whatsapp_number",
+          "text": "Which mobile number should be the WhatsApp contact on the website?",
+          "hint": "The brochure lists cell 9822221933; Google Maps shows the office number 9730944417."
+        },
+        {
+          "id": "call_numbers",
+          "text": "Which numbers should show as \"Call us\"? Is the landline 0712-6630625 still in use?"
+        },
+        {
+          "id": "enquiry_email",
+          "text": "Which email should website enquiries go to?",
+          "type": "choice",
+          "options": ["sales@reddees.com", "reddeessales@gmail.com", "Both"]
+        },
+        {
+          "id": "founder_name",
+          "text": "IndiaMART lists K. Narender Reddy as proprietor. Should the About page name him as the founder?",
+          "type": "choice",
+          "options": ["Yes", "No"]
+        },
+        {
+          "id": "gst_footer",
+          "text": "Should the GST number (27AAKPR8599K1ZJ) be shown in the website footer?",
+          "hint": "Optional. It is not legally required on a website.",
+          "type": "choice",
+          "options": ["Yes, show it", "No, skip it"]
+        },
+        {
+          "id": "listings",
+          "text": "Who manages our IndiaMART and TradeIndia listings? They say \"established 1997\" and \"2002\"; we'd like to update both to 1995."
+        }
+      ]
+    },
+    {
+      "id": "services",
+      "title": "Services",
+      "questions": [
+        {
+          "id": "after_sale",
+          "text": "After a sale, what do we provide: installation, operator training, repairs, spare parts?"
+        },
+        {
+          "id": "amc",
+          "text": "Do we offer AMC (annual maintenance contracts)? For which brands? Also for machines we didn't sell?"
+        },
+        {
+          "id": "rental",
+          "text": "Do we rent out machines, or offer per-copy (click charge) contracts?"
+        },
+        {
+          "id": "consumables",
+          "text": "Do we sell consumables: toner, ink, RISO masters, paper, binding glue, lamination film?"
+        },
+        {
+          "id": "refurbished",
+          "text": "Do we sell refurbished or used machines?"
+        },
+        {
+          "id": "demos",
+          "text": "Where are demos done: at the customer's site, at a partner's showroom, or both?"
+        },
+        {
+          "id": "service_area",
+          "text": "Which cities in Vidarbha does the service team cover, and roughly how fast do engineers reach a customer after a breakdown call?"
+        }
+      ]
+    },
+    {
+      "id": "products",
+      "title": "Products and brands",
+      "questions": [
+        {
+          "id": "lexmark",
+          "text": "The brochure shows the Lexmark CX951 inside the Xerox section. Do we sell Lexmark printers ourselves, or only that one model through Xerox?"
+        },
+        {
+          "id": "finishing_brand",
+          "text": "Who makes the finishing machines in the brochure (TC60 binder, 4908H cutter, UC600 Pro, UC400 Pro, 360M laminator, ACP1326 creaser)? Are we an authorised dealer for that brand, or do we source them ourselves?"
+        },
+        {
+          "id": "finishing_service",
+          "text": "Do we handle service and spares for those finishing machines ourselves? What warranty comes with each?",
+          "hint": "The brochure only mentions 1 year for the UC400 Pro."
+        },
+        {
+          "id": "other_brands",
+          "text": "For Canon, Konica Minolta, Kyocera, Fujifilm, HP, Epson, Zebra and Evolis: are we an authorised dealer for any of them, or do we sell them as a general dealer?"
+        },
+        {
+          "id": "product_list",
+          "text": "Is there anything we sell that is not in the brochure, or anything in it we no longer sell?",
+          "hint": "Online listings also show Xerox Versant 280, Versant 4100 and Iridesse, Fujifilm Apeos copiers, a KIP plotter, MAX label cutters, interactive boards, projectors and currency counting machines. Which of these do we still sell?"
+        },
+        {
+          "id": "prices",
+          "text": "Should the website show prices, or \"price on request\" for everything?",
+          "type": "choice",
+          "options": ["Show prices", "Price on request", "Prices for some products only"]
+        }
+      ]
+    },
+    {
+      "id": "look",
+      "title": "Look, colours and language",
+      "questions": [
+        {
+          "id": "colours",
+          "text": "Should the website follow the brochure's colours (teal, plus the logo's colour ring), or are we open to a fresh look?",
+          "type": "choice",
+          "options": ["Keep the brochure colours", "Open to a fresh look"]
+        },
+        {
+          "id": "logo_file",
+          "text": "Do we have the original logo file from the designer (AI, CDR, PDF or a high-resolution PNG)? Who has it?"
+        },
+        {
+          "id": "language",
+          "text": "Which languages should the website be in?",
+          "type": "choice",
+          "options": ["English only", "English + Hindi", "English + Marathi", "English + Hindi + Marathi"]
+        }
+      ]
+    },
+    {
+      "id": "photos",
+      "title": "Photos",
+      "intro": "Real photos of the shop and team build far more trust than catalogue pictures. A phone camera is fine: daylight, landscape, area tidied first. Send the photos to Natesh on WhatsApp or Google Drive, then tick the item here.",
+      "questions": [
+        { "id": "photo_storefront", "type": "photo", "text": "Storefront: outside of the office with the signboard clearly visible." },
+        { "id": "photo_office", "type": "photo", "text": "Office: wide shots of the inside, plus any machines kept there." },
+        { "id": "photo_founder", "type": "photo", "text": "A portrait of Dad for the About page." },
+        { "id": "photo_team", "type": "photo", "text": "Team: service engineers and staff, as a group and at work." },
+        { "id": "photo_machines", "type": "photo", "text": "Machines running: prints coming out, a book being bound, a cut or a lamination in progress." },
+        { "id": "photo_installations", "type": "photo", "text": "Installations at customer sites: schools, print shops or offices.", "hint": "Ask the customer first. No faces or documents without permission." },
+        { "id": "photo_service", "type": "photo", "text": "Service work: an engineer repairing a machine, the spares stock." },
+        { "id": "photo_certificates", "type": "photo", "text": "Certificates: authorised partner certificates from Xerox and RISO, and any dealer awards." },
+        { "id": "photo_events", "type": "photo", "text": "Events: trade fairs, product launches or customer meets, if any." }
+      ]
+    }
+  ]
+}

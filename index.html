@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Reddee's Sales · Website questions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <div>
+          <div class="brand-name">Reddee's Sales</div>
+          <div class="brand-sub">Website questions</div>
+        </div>
+      </div>
+      <div class="who" id="who" hidden>
+        <span id="whoName"></span>
+        <button type="button" class="link" id="switchUser">Change</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app">
+    <section class="gate" id="gate" hidden>
+      <h1 id="gateTitle">Questions for the new website</h1>
+      <p class="muted" id="gateIntro"></p>
+      <form id="gateForm" class="card gate-card" autocomplete="on">
+        <label for="nameInput">Your name</label>
+        <input id="nameInput" name="name" type="text" autocomplete="name" required maxlength="60" placeholder="e.g. Sonam">
+        <div id="codeField">
+          <label for="codeInput">Access code</label>
+          <input id="codeInput" name="code" type="password" inputmode="text" autocomplete="off" maxlength="60" placeholder="Shared by Natesh">
+        </div>
+        <p class="error" id="gateError" hidden></p>
+        <button type="submit" class="btn primary wide" id="gateSubmit">Start</button>
+      </form>
+    </section>
+
+    <section id="main" hidden>
+      <div class="banner" id="demoBanner" hidden>
+        Demo mode: answers are saved in this browser only, not shared with anyone.
+      </div>
+
+      <div class="summary card">
+        <div class="summary-row">
+          <div>
+            <div class="summary-count"><span id="doneCount">0</span> of <span id="totalCount">0</span> answered</div>
+            <div class="muted small" id="lastSync"></div>
+          </div>
+          <button type="button" class="btn ghost" id="refreshBtn">Refresh</button>
+        </div>
+        <div class="bar" role="progressbar" aria-labelledby="doneCount" id="bar"><div class="bar-fill" id="barFill"></div></div>
+        <div class="filters" role="tablist" aria-label="Show">
+          <button type="button" role="tab" class="chip" data-filter="pending" aria-selected="true">Still to answer</button>
+          <button type="button" role="tab" class="chip" data-filter="answered" aria-selected="false">Answered</button>
+          <button type="button" role="tab" class="chip" data-filter="all" aria-selected="false">All</button>
+        </div>
+      </div>
+
+      <div id="sections"></div>
+      <p class="empty muted" id="emptyState" hidden></p>
+    </section>
+
+    <p class="loading muted" id="loading">Loading…</p>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

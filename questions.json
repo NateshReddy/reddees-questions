@@ -293,7 +293,7 @@
           "hint": "Ask the customer first. Avoid showing faces or documents without permission."
         },
         {
-          "id": "vid_other",
+          "id": "vid_other_2",
           "type": "video",
           "folder": "Videos - Other",
           "text": "Anything else: a walk through the office, a customer saying a few words about us, or an existing promotional video.",

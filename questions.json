@@ -266,6 +266,40 @@
           "folder": "Events"
         }
       ]
+    },
+    {
+      "id": "videos",
+      "title": "Videos",
+      "intro": "Short clips of 10 to 60 seconds work best: hold the phone sideways and steady. Videos go straight to Natesh's Google Drive. Big videos can take a few minutes, so use Wi-Fi if you can and keep this page open until it says uploaded.",
+      "questions": [
+        {
+          "id": "vid_machines",
+          "type": "video",
+          "folder": "Videos - Machines running",
+          "text": "Machines at work: prints coming out of a Xerox or RISO, a book being bound, cutting, laminating or creasing.",
+          "hint": "One short clip per machine is perfect. These can go on the product pages."
+        },
+        {
+          "id": "vid_events",
+          "type": "video",
+          "folder": "Videos - Events",
+          "text": "Events: trade fairs, product launches, customer meets or any celebration."
+        },
+        {
+          "id": "vid_installations",
+          "type": "video",
+          "folder": "Videos - Installations",
+          "text": "Installations and service: a machine being set up at a customer's site, or an engineer at work.",
+          "hint": "Ask the customer first. Avoid showing faces or documents without permission."
+        },
+        {
+          "id": "vid_other",
+          "type": "video",
+          "folder": "Videos - Other",
+          "text": "Anything else: a walk through the office, a customer saying a few words about us, or an existing promotional video.",
+          "hint": "If a video is already on YouTube or Google Drive, you can paste the link in the note instead."
+        }
+      ]
     }
   ]
 }

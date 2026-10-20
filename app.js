@@ -10,7 +10,9 @@
   var DEMO_KEY = "reddees.demoAnswers";
   var DEMO_PHOTOS_KEY = "reddees.demoPhotos";
   var MAX_SIDE = 3000;                 // photos are resized to at most this many pixels on the long side
-  var MAX_UPLOAD = 25 * 1024 * 1024;   // matches the Apps Script limit
+  var MAX_UPLOAD = 25 * 1024 * 1024;   // matches the Apps Script limit for one-piece uploads
+  var SMALL_LIMIT = 20 * 1024 * 1024;  // bigger files (and all videos) go up in pieces
+  var MAX_BIG = 2 * 1024 * 1024 * 1024; // 2 GB
 
   var state = {
     data: null,
@@ -116,10 +118,118 @@
     });
   }
 
+  // Big files (videos, or anything over the single-request limit) go up in pieces.
+  function isBig(file) {
+    return /^video\//i.test(file.type || "") || /\.(mp4|mov|m4v|3gp|avi|mkv|webm)$/i.test(file.name || "") || file.size > SMALL_LIMIT;
+  }
+
+  function apiBig(payload) {
+    payload.code = state.me.code;
+    return fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function uploadBig(section, q, file, onProgress) {
+    if (file.size > MAX_BIG) return Promise.reject(new Error("too_large"));
+    if (DEMO) {
+      return new Promise(function (resolve) {
+        var sent = 0, step = Math.max(1, Math.ceil(file.size / 6));
+        (function tick() {
+          sent = Math.min(file.size, sent + step);
+          onProgress(sent / file.size);
+          if (sent < file.size) return setTimeout(tick, 150);
+          var all = load(DEMO_PHOTOS_KEY, {});
+          var rec = { fileName: file.name, name: state.me.name, time: new Date().toISOString() };
+          (all[q.id] = all[q.id] || []).push(rec);
+          save(DEMO_PHOTOS_KEY, all);
+          resolve({ ok: true, file: rec });
+        })();
+      });
+    }
+
+    var uploadId, chunk, offset = 0;
+
+    function check(res) {
+      if (!res || !res.ok) {
+        var err = new Error((res && res.error) || "upload_failed");
+        err.code = res && res.error;
+        throw err;
+      }
+      return res;
+    }
+
+    // Send one piece, retrying a few times; after a failure ask Drive how much arrived.
+    function sendFrom(pos, attempt) {
+      var piece = file.slice(pos, Math.min(file.size, pos + chunk));
+      return toBase64(piece).then(function (data) {
+        return apiBig({ action: "big_chunk", uploadId: uploadId, offset: pos, data: data });
+      }).then(check).catch(function (err) {
+        if (err.code === "bad_code" || err.code === "upload_expired" || attempt >= 4) throw err;
+        return new Promise(function (r) { setTimeout(r, 1500 * (attempt + 1)); })
+          .then(function () { return apiBig({ action: "big_status", uploadId: uploadId }); })
+          .then(check)
+          .then(function (st) {
+            if (st.done) return st;
+            return sendFrom(st.received || 0, attempt + 1);
+          });
+      });
+    }
+
+    function loop() {
+      return sendFrom(offset, 0).then(function (res) {
+        if (res.done) { onProgress(1); return res; }
+        if (typeof res.received !== "number" || res.received <= offset) {
+          var e = new Error("no_progress"); e.code = "no_progress"; throw e;
+        }
+        offset = res.received;
+        onProgress(offset / file.size);
+        return loop();
+      });
+    }
+
+    return apiBig({
+      action: "big_start",
+      qid: q.id,
+      folder: q.folder || section.title,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      size: file.size,
+      name: state.me.name
+    }).then(check).then(function (res) {
+      if (!res.uploadId) { var e = new Error("not_enabled"); e.code = "not_enabled"; throw e; }
+      uploadId = res.uploadId;
+      chunk = res.chunkSize || 8 * 1024 * 1024;
+      onProgress(0);
+      return loop();
+    });
+  }
+
+  // Keep the phone screen on while uploading (where the browser allows it).
+  var wakeLock = null;
+  function keepAwake(on) {
+    try {
+      if (on && !wakeLock && navigator.wakeLock) {
+        navigator.wakeLock.request("screen").then(function (l) { wakeLock = l; }).catch(function () {});
+      } else if (!on && wakeLock) {
+        wakeLock.release().catch(function () {}); wakeLock = null;
+      }
+    } catch (e) { /* not supported */ }
+  }
+  var activeUploads = 0;
+  window.addEventListener("beforeunload", function (e) {
+    if (activeUploads > 0) { e.preventDefault(); e.returnValue = ""; }
+  });
+
   function uploadFiles(section, q, files) {
     var list = Array.prototype.slice.call(files || []);
     if (!list.length) return;
-    var done = 0, failed = 0;
+    var done = 0, failed = 0, tooBig = 0, notEnabled = 0;
+    var noun = typeOf(q) === "video" ? "video" : "file";
+    activeUploads++;
+    keepAwake(true);
 
     function setStatus(text) {
       state.uploading[q.id] = text;
@@ -129,47 +239,73 @@
       if (s) { s.textContent = text; s.className = "upload-status status"; }
     }
 
-    function next(i) {
-      if (i >= list.length) {
-        delete state.uploading[q.id];
-        replaceCard(section, q);
-        renderSummary();
-        renderSectionCounts();
-        if (failed) {
-          var s = document.querySelector("#q-" + q.id + " .upload-status");
-          if (s) {
-            s.className = "upload-status status err";
-            s.textContent = done + " uploaded, " + failed + " failed. Check the internet and try the failed ones again.";
-          }
+    function finish() {
+      activeUploads--;
+      if (!activeUploads) keepAwake(false);
+      delete state.uploading[q.id];
+      replaceCard(section, q);
+      renderSummary();
+      renderSectionCounts();
+      if (failed) {
+        var s = document.querySelector("#q-" + q.id + " .upload-status");
+        if (s) {
+          s.className = "upload-status status err";
+          var msg = done + " uploaded, " + failed + " failed.";
+          if (tooBig) msg += " " + tooBig + " " + (tooBig === 1 ? "was" : "were") + " too big (over 2 GB). Share those as a Google Drive link in the note instead.";
+          if (notEnabled) msg += " Video uploads aren't switched on yet. Please tell Natesh, or share the videos on WhatsApp for now.";
+          else if (failed > tooBig) msg += " Check the internet and try the failed ones again; Wi-Fi works best for videos.";
+          s.textContent = msg;
         }
-        toast(failed ? "Some uploads failed." : (done === 1 ? "Photo uploaded. Thank you!" : done + " files uploaded. Thank you!"));
-        return;
       }
+      toast(failed ? "Some uploads failed." : (done === 1 ? "Uploaded. Thank you!" : done + " files uploaded. Thank you!"));
+    }
+
+    function next(i) {
+      if (i >= list.length) return finish();
       var f = list[i];
-      setStatus("Uploading " + (i + 1) + " of " + list.length + "…");
-      prepareFile(f).then(function (p) {
-        if (p.blob.size > MAX_UPLOAD) throw new Error("too_large");
-        return toBase64(p.blob).then(function (data) {
-          return apiUpload({
-            qid: q.id,
-            folder: q.folder || section.title,
-            fileName: p.name,
-            mimeType: p.type,
-            name: state.me.name,
-            data: data
+      var label = "Uploading " + (list.length > 1 ? (i + 1) + " of " + list.length : (isBig(f) ? noun : "")).trim();
+      setStatus(label + "…");
+
+      var job;
+      if (isBig(f)) {
+        job = uploadBig(section, q, f, function (frac) {
+          setStatus(label + "… " + Math.floor(frac * 100) + "%. Keep this page open.");
+        });
+      } else {
+        job = prepareFile(f).then(function (p) {
+          if (p.blob.size > MAX_UPLOAD) throw new Error("too_large");
+          return toBase64(p.blob).then(function (data) {
+            return apiUpload({
+              qid: q.id,
+              folder: q.folder || section.title,
+              fileName: p.name,
+              mimeType: p.type,
+              name: state.me.name,
+              data: data
+            });
           });
         });
-      }).then(function (res) {
+      }
+
+      job.then(function (res) {
         if (!res || !res.ok) {
-          if (res && res.error === "bad_code") { signOut("That access code no longer works. Please enter it again."); list = []; return; }
-          throw new Error((res && res.error) || "upload_failed");
+          var err = new Error((res && res.error) || "upload_failed"); err.code = res && res.error; throw err;
         }
         (state.photos[q.id] = state.photos[q.id] || []).push(res.file);
         state.justAnswered[q.id] = true;
         done++;
-      }).catch(function () {
+        next(i + 1);
+      }).catch(function (err) {
+        if (err && (err.code === "bad_code")) {
+          activeUploads--; if (!activeUploads) keepAwake(false);
+          delete state.uploading[q.id];
+          return signOut("That access code no longer works. Please enter it again.");
+        }
+        if (err && (err.code === "too_large" || err.message === "too_large")) tooBig++;
+        if (err && err.code === "not_enabled") notEnabled++;
         failed++;
-      }).then(function () { next(i + 1); });
+        next(i + 1);
+      });
     }
     next(0);
   }
@@ -191,7 +327,7 @@
     return !!(a && String(a.answer).trim());
   }
   function typeOf(q) { return q.type || "text"; }
-  function canUpload(q) { return typeOf(q) === "photo" || !!q.upload; }
+  function canUpload(q) { var t = typeOf(q); return t === "photo" || t === "video" || !!q.upload; }
 
   // Turn a stored answer back into editor fields.
   function parseAnswer(q, answer) {
@@ -205,7 +341,7 @@
       }
       return { option: "", text: answer };
     }
-    if (t === "photo") {
+    if (t === "photo" || t === "video") {
       if (answer === "Sent") return { checked: true, text: "" };
       if (answer.indexOf("Sent — ") === 0) return { checked: true, text: answer.slice(7) };
       return { checked: false, text: answer };
@@ -221,7 +357,7 @@
       if (d.option) return note ? d.option + " — " + note : d.option;
       return note;
     }
-    if (t === "photo") {
+    if (t === "photo" || t === "video") {
       if (d.checked) return note ? "Sent — " + note : "Sent";
       return note;
     }
@@ -325,6 +461,8 @@
 
   function renderUploader(section, q) {
     var files = state.photos[q.id] || [];
+    var isPhoto = typeOf(q) === "photo", isVideo = typeOf(q) === "video";
+    var noun = isVideo ? "video" : isPhoto ? "photo" : "file";
     var box = el("div", { className: "uploader" });
 
     if (files.length) {
@@ -333,14 +471,13 @@
       var who = Object.keys(by).map(function (n) { return n + " (" + by[n] + ")"; }).join(", ");
       box.appendChild(el("p", {
         className: "upload-summary",
-        text: files.length + (files.length === 1 ? " file uploaded" : " files uploaded") + " · " + who
+        text: files.length + " " + (files.length === 1 ? noun : noun + "s") + " uploaded · " + who
       }));
     }
 
-    var isPhoto = typeOf(q) === "photo";
     var input = el("input", {
       type: "file",
-      accept: q.accept || "image/*",
+      accept: q.accept || (isVideo ? "video/*" : "image/*"),
       multiple: true,
       className: "visually-hidden",
       id: "file-" + q.id,
@@ -353,9 +490,9 @@
     });
     var busy = !!state.uploading[q.id];
     var label = el("label", {
-      className: "btn upload-btn" + (busy ? " is-busy" : ""),
+      className: "btn upload-btn" + (isVideo ? " video" : "") + (busy ? " is-busy" : ""),
       "for": "file-" + q.id,
-      text: files.length ? (isPhoto ? "Upload more photos" : "Upload more files") : (isPhoto ? "Upload photos" : "Upload file")
+      text: (files.length ? "Upload more " : "Upload ") + (isPhoto || isVideo || files.length ? noun + "s" : noun)
     });
     var status = el("span", { className: "upload-status status", "aria-live": "polite", text: state.uploading[q.id] || "" });
     box.appendChild(el("div", { className: "upload-row" }, [input, label, status]));
@@ -392,14 +529,16 @@
       editor.appendChild(opts);
     }
 
-    if (t === "photo") {
+    if (t === "photo" || t === "video") {
       var cb = el("input", { type: "checkbox" });
       cb.checked = !!d.checked;
       cb.addEventListener("change", function () { d.checked = cb.checked; refreshButton(); });
       editor.appendChild(el("label", { className: "check" }, [cb, el("span", { text: "Sent on WhatsApp instead" })]));
     }
 
-    var placeholder = t === "text" ? "Type the answer here…" : "Anything to add? (optional)";
+    var placeholder = t === "text" ? "Type the answer here…"
+      : t === "video" ? "Anything to add? You can also paste a Google Drive or YouTube link here."
+      : "Anything to add? (optional)";
     var ta = el("textarea", { rows: t === "text" ? "3" : "2", placeholder: placeholder, "aria-label": "Answer: " + q.text });
     ta.value = d.text || "";
     ta.addEventListener("input", function () { d.text = ta.value; refreshButton(); });

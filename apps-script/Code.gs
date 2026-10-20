@@ -2,8 +2,8 @@
  * Reddee's Sales — website questions backend.
  *
  * Paste this into Extensions → Apps Script of the Google Sheet that should
- * collect the answers and change ACCESS_CODE below. Run setupPhotoFolder once
- * to approve Drive access, then
+ * collect the answers and change ACCESS_CODE below. Run setupPhotoFolder and
+ * setupVideoUploads once each to approve Google permissions, then
  * Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone).
  * After any change to this file: Deploy → Manage deployments → Edit → New version.
  *
@@ -23,6 +23,11 @@ const PHOTO_FOLDER_NAME = "Reddee's website photos";
 const PHOTO_SHEET_NAME = 'Photos';
 const PHOTO_HEADERS = ['Time', 'Question ID', 'Folder', 'File', 'Drive link', 'Uploaded by'];
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+// Videos and other big files are sent in pieces and joined by Google Drive.
+// Each piece must be a multiple of 256 KB (except the last).
+const CHUNK_BYTES = 8 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
@@ -74,6 +79,9 @@ function doPost(e) {
   }
   if (!codeOk_(body.code)) return json_({ ok: false, error: 'bad_code' });
   if (body.action === 'upload') return upload_(body);
+  if (body.action === 'big_start') return bigStart_(body);
+  if (body.action === 'big_chunk') return bigChunk_(body);
+  if (body.action === 'big_status') return bigStatus_(body);
 
   const qid = clip_(body.qid, 80);
   const name = clip_(body.name, 80);
@@ -132,19 +140,155 @@ function upload_(body) {
   }
 
   const file = folder.createFile(Utilities.newBlob(bytes, mime, fileName));
+  logUpload_(now, qid, folderName, fileName, file.getUrl(), name);
+  return json_({ ok: true, file: { qid: qid, fileName: fileName, name: name, time: now.toISOString() } });
+}
 
+function logUpload_(when, qid, folderName, fileName, url, name) {
+  const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
     const sh = photoSheet_();
     const row = sh.getLastRow() + 1;
     sh.getRange(row, 1, 1, PHOTO_HEADERS.length)
       .setNumberFormats([['dd MMM yyyy, h:mm am/pm', '@', '@', '@', '@', '@']])
-      .setValues([[now, qid, folderName, fileName, file.getUrl(), name]]);
+      .setValues([[when, qid, folderName, fileName, url, name]]);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function makeFileName_(folderName, name, original) {
+  return folderName + ' - ' + cleanName_(name) + ' - ' +
+    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmmss') + ' - ' + original;
+}
+
+// ---------- big uploads (videos) ----------
+// The page sends the file in pieces; this script passes each piece on to a
+// Google Drive "resumable upload" session, so files of any size up to
+// MAX_VIDEO_BYTES end up as one file in Drive.
+
+function bigStart_(body) {
+  const qid = clip_(body.qid, 80);
+  const name = clip_(body.name, 80);
+  const size = Number(body.size);
+  if (!qid || !name || !(size > 0)) return json_({ ok: false, error: 'missing_fields' });
+  if (size > MAX_VIDEO_BYTES) return json_({ ok: false, error: 'too_large' });
+
+  const folderName = cleanName_(clip_(body.folder, 60)) || qid;
+  const original = cleanName_(clip_(body.fileName, 120)) || 'video.mp4';
+  const fileName = makeFileName_(folderName, name, original);
+  const mime = clip_(body.mimeType, 100) || 'application/octet-stream';
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  let folder;
+  try {
+    folder = subfolder_(folderName);
   } finally {
     lock.releaseLock();
   }
 
-  return json_({ ok: true, file: { qid: qid, fileName: fileName, name: name, time: now.toISOString() } });
+  const res = UrlFetchApp.fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink',
+    {
+      method: 'post',
+      contentType: 'application/json; charset=UTF-8',
+      headers: {
+        Authorization: 'Bearer ' + ScriptApp.getOAuthToken(),
+        'X-Upload-Content-Type': mime,
+        'X-Upload-Content-Length': String(size)
+      },
+      payload: JSON.stringify({ name: fileName, mimeType: mime, parents: [folder.getId()] }),
+      muteHttpExceptions: true
+    }
+  );
+  const uri = header_(res, 'Location');
+  if (res.getResponseCode() !== 200 || !uri) {
+    return json_({ ok: false, error: 'start_failed', status: res.getResponseCode() });
+  }
+
+  const uploadId = Utilities.getUuid();
+  CacheService.getScriptCache().put('big_' + uploadId, JSON.stringify({
+    uri: uri, qid: qid, folderName: folderName, fileName: fileName, name: name, size: size
+  }), 21600);
+  return json_({ ok: true, uploadId: uploadId, chunkSize: CHUNK_BYTES });
+}
+
+function bigChunk_(body) {
+  const job = bigJob_(body.uploadId);
+  if (!job) return json_({ ok: false, error: 'upload_expired' });
+  const offset = Number(body.offset);
+  let bytes;
+  try {
+    bytes = Utilities.base64Decode(String(body.data || ''));
+  } catch (err) {
+    return json_({ ok: false, error: 'bad_file' });
+  }
+  if (!bytes.length || !(offset >= 0) || offset + bytes.length > job.size) {
+    return json_({ ok: false, error: 'bad_chunk' });
+  }
+  const res = UrlFetchApp.fetch(job.uri, {
+    method: 'put',
+    contentType: 'application/octet-stream',
+    headers: { 'Content-Range': 'bytes ' + offset + '-' + (offset + bytes.length - 1) + '/' + job.size },
+    payload: bytes,
+    muteHttpExceptions: true,
+    followRedirects: false
+  });
+  return bigResult_(body.uploadId, job, res);
+}
+
+// Asks Drive how much of the file has arrived (used to resume after a dropped connection).
+function bigStatus_(body) {
+  const job = bigJob_(body.uploadId);
+  if (!job) return json_({ ok: false, error: 'upload_expired' });
+  const res = UrlFetchApp.fetch(job.uri, {
+    method: 'put',
+    headers: { 'Content-Range': 'bytes */' + job.size },
+    payload: '',
+    muteHttpExceptions: true,
+    followRedirects: false
+  });
+  return bigResult_(body.uploadId, job, res);
+}
+
+function bigResult_(uploadId, job, res) {
+  const code = res.getResponseCode();
+  if (code === 308) {
+    const range = header_(res, 'Range'); // e.g. "bytes=0-8388607"
+    const m = range && /-(\d+)$/.exec(range);
+    return json_({ ok: true, received: m ? Number(m[1]) + 1 : 0 });
+  }
+  if (code === 200 || code === 201) {
+    let info = {};
+    try { info = JSON.parse(res.getContentText()); } catch (err) { /* keep going */ }
+    const url = info.webViewLink || (info.id ? 'https://drive.google.com/file/d/' + info.id + '/view' : '');
+    const cache = CacheService.getScriptCache();
+    const now = new Date();
+    if (!cache.get('bigdone_' + uploadId)) {
+      cache.put('bigdone_' + uploadId, '1', 21600);
+      logUpload_(now, job.qid, job.folderName, job.fileName, url, job.name);
+    }
+    return json_({ ok: true, done: true, file: { qid: job.qid, fileName: job.fileName, name: job.name, time: now.toISOString() } });
+  }
+  if (code === 404 || code === 410) return json_({ ok: false, error: 'upload_expired' });
+  return json_({ ok: false, error: 'chunk_failed', status: code });
+}
+
+function bigJob_(uploadId) {
+  if (!uploadId) return null;
+  const raw = CacheService.getScriptCache().get('big_' + String(uploadId).slice(0, 64));
+  return raw ? JSON.parse(raw) : null;
+}
+
+function header_(res, name) {
+  const h = res.getHeaders() || {};
+  const want = name.toLowerCase();
+  for (const k in h) {
+    if (k.toLowerCase() === want) return Array.isArray(h[k]) ? h[k][0] : h[k];
+  }
+  return '';
 }
 
 function rootFolder_() {
@@ -189,6 +333,22 @@ function cleanName_(s) {
 function setupPhotoFolder() {
   const f = rootFolder_();
   Logger.log('Photos will be saved in: ' + f.getUrl());
+}
+
+// Run this once (select it, click Run) to approve the extra permission video
+// uploads need ("connect to an external service", used to talk to Google Drive),
+// and to check that it works.
+function setupVideoUploads() {
+  const res = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  if (res.getResponseCode() === 200) {
+    Logger.log('Video uploads are ready. Videos will go to Drive for ' +
+      JSON.parse(res.getContentText()).user.emailAddress + ', in: ' + rootFolder_().getUrl());
+  } else {
+    Logger.log('Something went wrong (' + res.getResponseCode() + '): ' + res.getContentText());
+  }
 }
 
 // ---------- helpers ----------

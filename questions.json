@@ -1,6 +1,6 @@
 {
   "title": "Questions for the new website",
-  "intro": "Thank you for all the answers so far! Based on them we have a few follow-up questions; they're under \"Still to answer\". Anyone can answer any question, and each answer saves as soon as you press Save.",
+  "intro": "Thank you for all the answers so far! There are only a few questions left; they're under \"Still to answer\". Anyone can answer any question, and each answer saves as soon as you press Save.",
   "sections": [
     {
       "id": "contact",
@@ -11,20 +11,18 @@
           "text": "Do we own reddees.com? Who registered it, and where (GoDaddy, BigRock, etc.)? Do we have the login? Is anything live on it right now?"
         },
         {
-          "id": "fu_whatsapp",
-          "type": "choice",
-          "text": "The website's WhatsApp button opens a chat with one number. Which number should it open?",
-          "hint": "Earlier answer: \"can both Nos.\" We can show two buttons if you like, e.g. one for Sales and one for Service.",
-          "options": [
-            "9822221933",
-            "9730944417",
-            "Two buttons: Sales and Service (say which number is which below)"
-          ]
+          "id": "fu_number_9860",
+          "text": "Whose number is 9860312218? What should the website call it?",
+          "hint": "For example: Sales, Service, Office, or a person's name."
         },
         {
-          "id": "fu_call_labels",
-          "text": "How should the \"Call us\" numbers 9730944417 and 9860312218 be labelled on the website (e.g. Sales, Service, Office, or a person's name)? Is the landline 0712-6630625 still in use?",
-          "hint": "Earlier answer: \"9730944417, 9860312218\""
+          "id": "fu_landline",
+          "type": "choice",
+          "text": "Is the landline 0712-6630625 still in use?",
+          "options": [
+            "Yes, show it",
+            "No, leave it out"
+          ]
         },
         {
           "id": "enquiry_email",
@@ -54,11 +52,6 @@
             "Yes, show it",
             "No, skip it"
           ]
-        },
-        {
-          "id": "fu_listings",
-          "text": "Who can log in to our IndiaMART and TradeIndia listings to change the founding year? IndiaMART says 1997 and TradeIndia says 2002; both should say 1995.",
-          "hint": "Earlier answer: \"1995\" Yes, 1995 is right. We just need someone to update those two sites."
         }
       ]
     },
@@ -97,19 +90,21 @@
           "text": "Do we sell consumables: toner, ink, RISO masters, paper, binding glue, lamination film?"
         },
         {
-          "id": "fu_refurbished",
-          "text": "Which refurbished or used machines do we sell (brands or types of machine), and what warranty comes with them?",
-          "hint": "Earlier answer: \"yes\""
+          "id": "fu_refurb_which",
+          "text": "Which refurbished or used machines do we sell?",
+          "hint": "Just the brands or machine types is enough, for example \"Xerox and Canon copiers\"."
         },
         {
-          "id": "fu_demo_office",
-          "text": "Which products can customers come and see a demo of at our office? Which ones need a demo at the customer's site?",
-          "hint": "Earlier answer: \"Customers site and at our office also, depending on the product.\""
-        },
-        {
-          "id": "fu_service_cities",
-          "text": "Which towns or districts outside Nagpur does the service team regularly cover (e.g. Wardha, Chandrapur, Amravati, Bhandara, Gondia, Yavatmal)?",
-          "hint": "Earlier answer: \"In city 4 to 6 hrs and outstation 24 working hrs\" We'll use these response times on the website."
+          "id": "fu_refurb_warranty",
+          "type": "choice",
+          "text": "What warranty comes with a refurbished machine?",
+          "options": [
+            "3 months",
+            "6 months",
+            "1 year",
+            "No warranty",
+            "It depends (explain below)"
+          ]
         }
       ]
     },
@@ -127,29 +122,21 @@
           "hint": "Earlier answer: \"we are authorised partner for an importer\""
         },
         {
-          "id": "fu_finishing_warranty",
-          "text": "What warranty comes with the finishing machines? Is it the same for all of them?",
-          "hint": "Earlier answer: \"yes\" (to handling service and spares ourselves). The brochure mentions 1 year for the UC400 Pro."
-        },
-        {
           "id": "other_brands",
           "text": "For Canon, Konica Minolta, Kyocera, Fujifilm, HP, Epson, Zebra and Evolis: are we an authorised dealer for any of them, or do we sell them as a general dealer?"
-        },
-        {
-          "id": "fu_card_printers",
-          "type": "choice",
-          "text": "For ID card printers, we're authorised for IDP. Do we still sell Zebra and Evolis card printers too?",
-          "hint": "Earlier answer: \"we are authorised for Xerox, Riso, Fujifilm and IDP card printers; for other products we are resellers.\"",
-          "options": [
-            "Only IDP",
-            "IDP, Zebra and Evolis",
-            "IDP and one of them (say which below)"
-          ]
         },
         {
           "id": "fu_products_still",
           "text": "Do we still sell these: Xerox Versant 280, Versant 4100, Xerox Iridesse, Fujifilm Apeos copiers, MAX label cutters, HP and Epson plotters? Is there anything new we sell that is not in the brochure?",
           "hint": "Earlier answer: \"now we are not dealing in KIP, projectors, interactive boards, currency counting\""
+        },
+        {
+          "id": "fu_fujifilm_models",
+          "upload": true,
+          "folder": "Brochures",
+          "accept": "image/*,.pdf",
+          "text": "Which Fujifilm (Apeos) copiers and printers do we sell? Type the model names, or upload the Fujifilm brochure or price list here.",
+          "hint": "Photos of the brochure pages are fine too."
         },
         {
           "id": "prices",
